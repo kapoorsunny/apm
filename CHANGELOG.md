@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `apm deps why <package>` explains why a transitive dependency is installed by walking the lockfile's `resolved_by` chain back to the user's direct declaration in `apm.yml`. Supports `--global` for user-scope lockfiles and `--json` for scriptable output (JSON to stdout, all logs to stderr; analogue of `npm why` / `yarn why`). Exits `0` on success, `1` when the package isn't installed or the query is ambiguous, `2` when no lockfile exists. (#1490)
+
 ## [0.15.0] - 2026-05-27
 
 ### Security
