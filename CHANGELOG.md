@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `apm pack` now synthesises `homepage`, `repository`, `keywords`, and a structured
+  `author` (`{name, email?, url?}`) from `apm.yml` into `plugin.json`. All changes are
+  additive: omitting any of these fields in `apm.yml` produces no change to the output.
+  The `author` field continues to accept a plain string (backward-compatible). (closes #1621)
 - `apm install` and `apm compile` now accept `--root DIR` to redirect every
   generated artifact -- `apm_modules/`, `apm.lock.yaml`, `.gitignore`, and
   integrated harness files (install) or `AGENTS.md` and per-target files
