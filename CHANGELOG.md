@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `apm mcp install --help` epilog now references `apm install --help` instead of the invalid `apm install --mcp --help` flag combination that always raised a UsageError. (closes #1586)
 - Custom-port credential errors now include a ready-to-run `git credential fill` verification command and a link to the auth troubleshooting docs, so users can diagnose miskeyed helpers without guessing. (closes #799)
 - `apm install` now shows a recovery hint (`apm install --no-policy`) when the `required-packages-deployed` policy check fails, so users know how to unblock without hunting for the flag. (closes #1314)
 - `apm install -g` now deploys `instructions` primitives for the Copilot target by concatenating all `*.instructions.md` files from each installed package into `~/.copilot/copilot-instructions.md`, the single file Copilot CLI reads at user scope. Previously this primitive type was silently skipped for global installs. Each package's contribution is wrapped in an HTML provenance comment so the file is auditable and multi-package installs accumulate correctly. (closes #650)
