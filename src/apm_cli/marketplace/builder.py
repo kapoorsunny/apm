@@ -71,6 +71,8 @@ from .yml_schema import (
 
 logger = logging.getLogger(__name__)
 
+_LOCAL_METADATA_MAX_BYTES = 64 * 1024
+
 __all__ = [
     "BuildDiagnostic",
     "BuildOptions",
@@ -204,7 +206,7 @@ class BuildReport:
         return any(output.dry_run for output in self.outputs)
 
     def to_json_dict(self) -> dict[str, Any]:
-        """Serialize build report as the §4 JSON contract.
+        """Serialize build report as the Section 4 JSON contract.
 
         Shape: {ok, dry_run, warnings[], errors[],
                 marketplace: {outputs: [{format, path, added, updated,
@@ -248,7 +250,7 @@ class BuildReport:
         warnings: list[str] | None = None,
         dry_run: bool = False,
     ) -> dict[str, Any]:
-        """Produce the §4 JSON shape for a pre-build failure.
+        """Produce the Section 4 JSON shape for a pre-build failure.
 
         Used when the build cannot even start (e.g., config parse error,
         unknown format filter).
@@ -828,7 +830,73 @@ class MarketplaceBuilder:
                 ordered.append(results[idx])
         return ResolveResult(entries=tuple(ordered), errors=tuple(errors))
 
-    # -- remote description fetcher -----------------------------------------
+    # -- description/version metadata fetchers ------------------------------
+
+    def _fetch_local_metadata(self, pkg: ResolvedPackage) -> dict[str, str] | None:
+        """Best-effort: read ``description`` and ``version`` from a
+        local-path package's ``apm.yml`` on disk.
+
+        Local-path packages (``source: ./...``) record the curator's
+        ``source`` value on ``ResolvedPackage.subdir``; the package's
+        own ``apm.yml`` lives at ``<project_root>/<subdir>/apm.yml``.
+        Returns a dict with ``description`` and/or ``version`` keys, or
+        ``None`` when the file is missing or unreadable.  Mirrors
+        ``_fetch_remote_metadata``: cosmetic enrichment only, failures
+        are logged at debug level and never propagate.
+
+        The resolved path is constrained to ``self._project_root`` so a
+        curator entry pointing outside the tree is skipped.  A source
+        that resolves to the project root itself is also skipped -- that
+        file is the marketplace's own ``apm.yml``, not a package
+        manifest.
+        """
+        if not pkg.subdir:
+            return None
+        try:
+            project_root = ensure_path_within(self._project_root, self._project_root)
+            package_root = ensure_path_within(project_root / pkg.subdir, project_root)
+            if package_root == project_root:
+                return None
+            file_path = package_root / "apm.yml"
+            if not file_path.is_file():
+                return None
+            metadata_path = ensure_path_within(file_path, project_root)
+            with metadata_path.open("rb") as handle:
+                raw = handle.read(_LOCAL_METADATA_MAX_BYTES + 1)
+            if len(raw) > _LOCAL_METADATA_MAX_BYTES:
+                logger.debug(
+                    "Skipping local metadata for %s: apm.yml exceeds %d bytes",
+                    pkg.name,
+                    _LOCAL_METADATA_MAX_BYTES,
+                )
+                return None
+            data = yaml.safe_load(raw.decode("utf-8"))
+            if not isinstance(data, dict):
+                return None
+            result: dict[str, str] = {}
+            desc = data.get("description")
+            if isinstance(desc, str) and desc:
+                result["description"] = desc
+            ver = data.get("version")
+            if ver is not None:
+                ver_str = str(ver).strip()
+                if ver_str:
+                    result["version"] = ver_str
+            if result:
+                logger.debug(
+                    "Read local metadata for %s from %s: %s",
+                    pkg.name,
+                    file_path,
+                    ", ".join(result.keys()),
+                )
+                return result
+        except Exception:
+            logger.debug(
+                "Could not read local metadata for %s",
+                pkg.name,
+                exc_info=True,
+            )
+        return None
 
     def _fetch_remote_metadata(self, pkg: ResolvedPackage) -> dict[str, str] | None:
         """Best-effort: fetch ``description`` and ``version`` from the
@@ -960,27 +1028,39 @@ class MarketplaceBuilder:
         return None
 
     def _prefetch_metadata(self, resolved: list[ResolvedPackage]) -> dict[str, dict[str, str]]:
-        """Concurrently fetch remote metadata for all packages.
+        """Fetch ``description``/``version`` metadata for resolved packages.
 
         Returns a mapping of ``{package_name: {"description": ..., "version": ...}}``
-        for successful fetches.  Skipped entirely when ``--offline`` is set.
-        Local-path packages are skipped (they carry their own metadata).
+        for successful fetches.  Both local-path and remote packages are
+        read from each package's own ``apm.yml`` so the output mapper can
+        apply one fallback rule regardless of source kind.
 
-        A GitHub token is resolved once before spawning worker threads and
-        stored on ``self._github_token`` for the workers to read.
+        Local reads always run (filesystem only).  Remote fetches are
+        skipped when ``--offline`` is set.  A GitHub token is resolved
+        once before spawning worker threads and stored on
+        ``self._github_token`` for the workers to read.
         """
-        if self._options.offline:
-            return {}
+        results: dict[str, dict[str, str]] = {}
 
-        # Filter out local-path entries -- they don't have a remote to fetch from.
+        # Local-path packages: read each apm.yml directly from disk.
+        # Cheap and serial -- no network, no thread pool needed.
+        for pkg in resolved:
+            if pkg.source_repo:
+                continue
+            meta = self._fetch_local_metadata(pkg)
+            if meta:
+                results[pkg.name] = meta
+
+        if self._options.offline:
+            return results
+
         remote = [pkg for pkg in resolved if pkg.source_repo]
         if not remote:
-            return {}
+            return results
 
         # Resolve token once -- threads read self._github_token (immutable).
         self._ensure_auth()
 
-        results: dict[str, dict[str, str]] = {}
         workers = min(self._options.concurrency, len(remote))
         with ThreadPoolExecutor(max_workers=workers) as pool:
             future_to_name = {
