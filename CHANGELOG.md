@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `apm install --frozen` no longer spuriously rejects private Git dependencies
+  hosted on non-default Git servers such as Bitbucket Server, GitLab, or GitHub
+  Enterprise; lockfile matching now uses the same host-qualified identity as
+  `apm install`. (#2011)
 - `apm install` and `apm uninstall` no longer strip comments from `apm.yml`
   while updating dependency entries, so inline annotations and section notes
   survive dependency updates. (#2012)
