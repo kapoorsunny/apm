@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `apm audit --help` now accurately describes the command's full scope:
+  hidden Unicode scanning, drift detection, and lockfile/policy checks.
+  The previous summary named only Unicode scanning and used the legacy
+  "packages" terminology. (#2017)
 - `apm pack` now cryptographically verifies every dependency file against
   the lockfile before bundling -- unattested content never ships. It closes a
   supply-chain provenance hole in **every** format
