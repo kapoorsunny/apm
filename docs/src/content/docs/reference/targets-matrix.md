@@ -65,10 +65,10 @@ list before `compile` or `install`.
 | windsurf | `.windsurf/` directory                        |
 | kiro     | `.kiro/` directory                            |
 
-`agent-skills` is a canonical target key; `antigravity` is explicit-only.
-Both are available with `--target`, but only `agent-skills` can be listed in a
+`agent-skills` is a canonical target key; `antigravity` is explicit-only for
+auto-detection. Both are available with `--target` and can be listed in a
 project's `apm.yml` `targets:` field so contributors running plain `apm
-install` pick it up automatically.
+install` pick them up automatically.
 
 `copilot-cowork`, `copilot-app`, `openclaw`, and `hermes` are experimental targets
 that require `apm experimental enable <name>` before use. They are selected
@@ -157,15 +157,15 @@ Gemini CLI.
 
 Google Antigravity CLI (`agy`), successor to Gemini CLI.
 
-- **Detection.** None -- explicit-only. Antigravity shares the cross-tool `.agents/` root, so there is no unique auto-detect signal. Select it with `--target antigravity`; it is not part of `--target all` and is not accepted in `apm.yml` `targets:`. Project-scope MCP writes are opt-in: `.agents/` must already exist (APM does not create it automatically for MCP).
+- **Detection.** None -- explicit-only for auto-detection. Antigravity shares the cross-tool `.agents/` root, so there is no unique auto-detect signal. Select it with `--target antigravity` or list it in `apm.yml` `targets:`; it is not part of `--target all`. Project-scope MCP writes are opt-in: `.agents/` must already exist (APM does not create it automatically for MCP).
 - **Deploy directory.** `.agents/` (project scope); `~/.gemini/` (user scope).
 - **Supported primitives.** instructions, skills, hooks, mcp.
 - **File conventions.**
-  - instructions: `.agents/rules/<name>.md`
+  - instructions: `.agents/rules/<name>.md` (formatted natively with `trigger: glob` and `globs` frontmatter mapped from the package `applyTo` patterns)
   - skills: `.agents/skills/<name>/SKILL.md`
   - hooks: `.agents/hooks.json` (Antigravity's native schema: `PreToolUse`/`PostToolUse`/`PreInvocation`/`PostInvocation`/`Stop`)
   - mcp: `.agents/mcp_config.json` (project; `mcpServers` key) or `~/.gemini/config/mcp_config.json` (user)
-- **Compile output.** `AGENTS.md`.
+- **Compile output.** `AGENTS.md`. Supports compilation deduplication: if `.agents/rules/` exists and contains at least one deployed instruction rule file (for the discovered `.apm/instructions/*.instructions.md` set), those instructions are omitted from `AGENTS.md` to avoid duplicate context.
 
 ## opencode
 

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `apm install` now formats and emits Antigravity-native `trigger: glob` and `globs` frontmatter in `.agents/rules/*.md`, `apm compile` now omits instructions from `AGENTS.md` when they are already present in `.agents/rules/` (deduplication), and `docs/src/content/docs/specs/openapm-v0.1.md` now cites the target contract. (by @okamiconcept) (#1984)
+
 ### Security
 
 - Artifactory registry-proxy ZIP installs now use the shared safe extraction
